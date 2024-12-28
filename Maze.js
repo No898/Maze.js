@@ -93,7 +93,7 @@ class MazeRenderMap {
     render(position, previousPosition, symbol) {
         if (previousPosition) {
             const { x, y } = previousPosition;
-            if (this.maze[y][x]) {
+            if (this.maze[y][x] !== "#") {
                 this.maze[y][x] = " ";
             }
         }
@@ -140,16 +140,24 @@ class WallFollowStrategy {
 
         if (this.canMove(wallDirection, position, maze)) {
             this.currentDirection = wallDirection;
-        } else if (!this.canMove(this.currentDirection, position, maze)) {
+        } else if (this.canMove(this.currentDirection, position, maze)) {
+            // Směr vpřed je možný
+        } else {
             this.currentDirection = this.wallSide === "left"
                 ? this.rotateRight(this.currentDirection)
                 : this.rotateLeft(this.currentDirection);
         }
 
-        return {
-            x: position.x + this.currentDirection.dx,
-            y: position.y + this.currentDirection.dy
-        };
+        // Kontrola, zda je pohyb možný
+        const newX = position.x + this.currentDirection.dx;
+        const newY = position.y + this.currentDirection.dy;
+
+        if (this.canMove(this.currentDirection, position, maze)) {
+            return { x: newX, y: newY };
+        }
+
+        // Pokud pohyb není možný, zůstává na místě
+        return position;
     }
 
     canMove(direction, position, maze) {
