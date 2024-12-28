@@ -89,8 +89,7 @@ class MazeRenderMap {
         this.originalMaze = maze.map(row => [...row])
         this.maze = maze.map(row => [...row])
     }
-
-    render(position, previousPosition, symbol) {
+    render(position, previousPosition, symbol, atFinish = false) {
         if (previousPosition) {
             const { x, y } = previousPosition;
             if (this.maze[y][x] !== "#") {
@@ -98,9 +97,11 @@ class MazeRenderMap {
             }
         }
 
-        const { x, y } = position;
-        if (this.maze[y][x] !== "#") {
-            this.maze[y][x] = symbol;
+        if (!atFinish) { // Symbol trpaslíka přidáme pouze, pokud nedorazil do cíle
+            const { x, y } = position;
+            if (this.maze[y][x] !== "#") {
+                this.maze[y][x] = symbol;
+            }
         }
 
         console.clear();
@@ -117,15 +118,25 @@ class Dwarf {
         this.strategy = strategy;
     }
 
-    logPosition() {
-        console.log(`Pozice trpaslíka: (${this.position.x}, ${this.position.y})`)
+    logPosition(name, dwarfPositions) {
+        if (this.isAtFinish()) {
+            dwarfPositions[name] = `(${this.position.x}, ${this.position.y}) - Dorazil do cíle!`;
+        } else {
+            dwarfPositions[name] = `(${this.position.x}, ${this.position.y})`;
+        }
+        console.log("Aktuální pozice trpaslíků:");
+        for (const [dwarfName, pos] of Object.entries(dwarfPositions)) {
+            console.log(` - ${dwarfName}: ${pos}`);
+        }
     }
+
 
     isAtFinish() {
         return this.position.x === this.finish.x && this.position.y === this.finish.y;
     }
-
 }
+
+
 // Wall-following algoritmus pro L/R trpaslíky
 class WallFollowStrategy {
     constructor(wallSide) {
@@ -181,32 +192,60 @@ class WallFollowStrategy {
     }
 }
 
-
-// Trpaslík spawnující se random po mapě
-class RandomPortDwarf extends Dwarf {
-    constructor(maze, start, finish) {
-        super(maze, start, finish);
-        this.teleported = false; // Indikátor, zda už se teleportoval
+// Trpaslík teleportující se náhodně po mapě
+class RandomPortStrategy {
+    constructor(maze, teleportInterval = 5000) {
+        this.maze = maze;
+        this.teleportInterval = teleportInterval; // Interval teleportace v ms
+        this.lastTeleportTime = Date.now(); // Čas poslední teleportace
     }
 
-    move() {
-        if (!this.teleported && Math.random() < 0.1) { // 10% šance, pokud ještě neteleportoval
-            this.position = { ...this.finish }; // Přesune se do cíle
-            this.teleported = true; // Označí, že už se teleportoval
-            console.log("Trpaslík se teleportoval do cíle!");
-        } else if (!this.teleported) {
-            console.log(`Trpaslík čeká na teleportaci. Pozice: (${this.position.x}, ${this.position.y})`);
-        } else {
-            console.log("Trpaslík už je v cíli a nepohybuje se.");
+    move(position) {
+        const currentTime = Date.now();
+
+        // Zkontrolujeme, zda je čas pro teleportaci
+        if (currentTime - this.lastTeleportTime >= this.teleportInterval) {
+            const emptyPositions = this.findEmptyPositions(this.maze);
+
+            if (emptyPositions.length === 0) {
+                console.error("Nebyla nalezena žádná volná pozice pro teleportaci.");
+                return position; // Pokud nejsou volné pozice, zůstává na místě
+            }
+
+            // Vybereme náhodnou volnou pozici (včetně cíle F)
+            const randomIndex = Math.floor(Math.random() * emptyPositions.length);
+            const newPosition = emptyPositions[randomIndex];
+
+            // Aktualizujeme čas poslední teleportace
+            this.lastTeleportTime = currentTime;
+
+            console.log(`Trpaslík se teleportoval na pozici: (${newPosition.x}, ${newPosition.y})`);
+            return { x: newPosition.x, y: newPosition.y };
         }
+
+        // Pokud není čas na teleportaci, zůstává na aktuální pozici
+        console.log(`Trpaslík čeká na další teleportaci. Pozice: (${position.x}, ${position.y})`);
+        return position;
+    }
+
+    // Najde všechny volné pozice v bludišti (včetně cíle F)
+    findEmptyPositions(maze) {
+        const emptyPositions = [];
+        for (let y = 0; y < maze.length; y++) {
+            for (let x = 0; x < maze[y].length; x++) {
+                if (maze[y][x] !== "#") { // Překážky vyloučeny, ale F a S jsou povoleny
+                    emptyPositions.push({ x, y });
+                }
+            }
+        }
+        return emptyPositions;
     }
 }
 
-// Trpaslík následující nalezenou cestu
-class PathFollowingDwarf extends Dwarf {
+// Trpaslík následující nalezenou cestu BFS
+class PathFollowingStrategy {
     constructor(maze, start, finish) {
-        super(maze, start, finish);
-        this.path = this.findPath(maze, start, finish);
+        this.path = this.findPath(maze, start, finish); // Najdeme cestu při inicializaci
         this.currentStep = 0;
     }
 
@@ -216,11 +255,14 @@ class PathFollowingDwarf extends Dwarf {
             { dx: -1, dy: 0 }, // doleva
             { dx: 0, dy: 1 }, // dolů
             { dx: 1, dy: 0 }, // doprava
-        ]
+        ];
 
+        const visited = Array.from({ length: maze.length }, () =>
+            Array(maze[0].length).fill(false)
+        );
+        const queue = [[{ x: start.x, y: start.y }]];
 
-        const queue = [[{ x: start.x, y: start.y }]]
-
+        visited[start.y][start.x] = true;
 
         while (queue.length > 0) {
             const path = queue.shift();
@@ -241,22 +283,23 @@ class PathFollowingDwarf extends Dwarf {
                     newY >= 0 &&
                     newX < maze[0].length &&
                     newY < maze.length &&
-                    maze[newY][newX] !== "#"
+                    maze[newY][newX] !== "#" &&
+                    !visited[newY][newX]
                 ) {
-                    queue.push([...path, { x: newX, y: newY }])
+                    visited[newY][newX] = true;
+                    queue.push([...path, { x: newX, y: newY }]);
                 }
             }
         }
-        throw new Error("cesta nenalezena.")
+
+        throw new Error("Cesta nenalezena.");
     }
-    move() {
+
+    move(position, maze) {
         if (this.currentStep < this.path.length) {
-            this.position = this.path[this.currentStep];
-            this.logPosition();
-            this.currentStep++;
-        } else {
-            console.log("Trpaslík už dosáhl cíle nebo dokončil cestu.");
+            return this.path[this.currentStep++]; // Posun na další pozici v cestě
         }
+        return position; // Pokud jsme dosáhli cíle, zůstává na místě
     }
 }
 
@@ -266,36 +309,58 @@ async function simulateDwarfs(maze, start, finish) {
 
     const leftWallStrategy = new WallFollowStrategy("left");
     const rightWallStrategy = new WallFollowStrategy("right");
+    const pathFollowingStrategy = new PathFollowingStrategy(maze, start, finish);
+    const randomPortStrategy = new RandomPortStrategy(maze, 100);
 
     const dwarfs = [
         { dwarf: new Dwarf(maze, start, finish, leftWallStrategy), name: "LeftTurnDwarf", symbol: "L" },
-        { dwarf: new Dwarf(maze, start, finish, rightWallStrategy), name: "RightTurnDwarf", symbol: "R" }
+        { dwarf: new Dwarf(maze, start, finish, rightWallStrategy), name: "RightTurnDwarf", symbol: "R" },
+        { dwarf: new Dwarf(maze, start, finish, pathFollowingStrategy), name: "PathFollowerDwarf", symbol: "P" },
+        { dwarf: new Dwarf(maze, start, finish, randomPortStrategy), name: "RandomPortDwarf", symbol: "T" }
     ];
 
-    for (const { dwarf, name, symbol } of dwarfs) {
-        console.log(`Trpaslík ${name} přidán do bludiště...`);
+    const dwarfPositions = {}; // Uchování pozic všech trpaslíků
 
-        // Inicializace previousPosition
-        let previousPosition = { ...dwarf.position };
+    for (let i = 0; i < dwarfs.length; i++) {
+        const { dwarf, name, symbol } = dwarfs[i];
 
-        while (!dwarf.isAtFinish()) {
-            // Render před pohybem
-            renderer.render(dwarf.position, previousPosition, symbol);
-
-            // Aktualizovat previousPosition před změnou pozice
-            previousPosition = { ...dwarf.position };
-
-            dwarf.position = dwarf.strategy.move(dwarf.position, maze);
-            dwarf.logPosition();
-
-
-            await new Promise(resolve => setTimeout(resolve, 100)); // Pauza 100ms
+        // Spusťte dalšího trpaslíka po 5s odstartování aktuálního
+        if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Pauza 5s
         }
 
-        console.log(`Trpaslík ${name} dosáhl cíle!`);
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Pauza 5s mezi trpaslíky
+        // Asynchronně spustit simulaci jednoho trpaslíka
+        (async () => {
+            let previousPosition = { ...dwarf.position };
+
+            while (!dwarf.isAtFinish()) {
+                // Render před pohybem
+                renderer.render(dwarf.position, previousPosition, symbol);
+
+                // Aktualizovat previousPosition před změnou pozice
+                previousPosition = { ...dwarf.position };
+
+                dwarf.position = dwarf.strategy
+                    ? dwarf.strategy.move(dwarf.position, maze) // Strategie pro WallFollow trpaslíky
+                    : dwarf.path[dwarf.currentStep++]; // Pohyb pro BFS trpaslíka
+
+                // Aktualizace a zobrazení pozic
+                dwarf.logPosition(name, dwarfPositions);
+
+                await new Promise(resolve => setTimeout(resolve, 100)); // Pauza 100ms
+            }
+
+            // Po dosažení cíle odstraníme symbol z mapy
+            renderer.render(dwarf.position, previousPosition, symbol, true);
+            console.log(`Všichni trpaslíci úspěšně dosáhli cíle!`);
+        })();
     }
 }
+
+
+
+
+
 
 
 // Hlavní funkce
