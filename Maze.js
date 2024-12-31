@@ -199,9 +199,10 @@ class RandomPortStrategy {
     move(position) {
         const emptyPositions = this.findEmptyPositions(this.maze);
 
+        // Check Pokud nenajde cíl a zpotřebuje všechny volné pozice
         if (emptyPositions.length === 0) {
             console.error("Nebyla nalezena žádná volná pozice pro teleportaci.");
-            return position; // Pokud nejsou volné pozice, zůstává na místě
+            return position;
         }
 
         let newPosition;
