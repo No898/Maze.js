@@ -101,7 +101,6 @@ class MazeRenderMap {
     }
 
     printMaze() {
-        // Zde voláme skutečné překreslení konzole jen když potřebujeme.
         console.clear();
         this.maze.forEach(row => console.log(row.join("")));
     }
@@ -135,7 +134,7 @@ class Dwarf {
 
 // ------------------ STRATEGIES ------------------
 
-// Wall-following algoritmus pro L/R trpaslíky
+// Wall-following algoritmus(Hand On Wall Rule) pro L/R trpaslíky
 class WallFollowStrategy {
     constructor(wallSide) {
         this.wallSide = wallSide;
@@ -301,7 +300,7 @@ class PathFollowingStrategy {
     }
 }
 
-// ------------------ FACTORY ------------------
+// Factory
 class DwarfFactory {
 
     static createDwarf(type, maze, start, finish) {
@@ -426,7 +425,6 @@ async function simulateDwarfs(maze, start, finish) {
 
     console.log("Všichni trpaslíci úspěšně došli do cíle!");
 }
-
 
 // Hlavní funkce
 async function main() {
