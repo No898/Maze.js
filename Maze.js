@@ -419,7 +419,7 @@ async function simulateDwarfs(maze, start, finish) {
 async function main() {
     try {
         // Načtení bludiště
-        const maze = await readMazeFile("TestMaze.dat");
+        const maze = await readMazeFile("Maze.dat");
 
         // Validace bludiště
         validateMaze(maze);
