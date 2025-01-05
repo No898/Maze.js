@@ -55,7 +55,7 @@ Vytvořte konzolovou aplikaci, která:
 4. **Sledování cesty:** Trpaslík si pomocí BFS najde nejkratší cestu a sleduje ji.
 
 ### Překreslování bludiště
-- Bludiště je vykreslováno pouze v případě, že dojde ke změně pozic trpaslíků, aby se minimalizovalo zbytečné překreslování.
+- Překresluje se pouze pohyb trpaslíků a vypsané pozice trpaslíků, aby se minimalizovalo zbytečné překreslování.
 
 ### Simulace
 - Trpaslíci jsou do bludiště vkládáni postupně s odstupem 5 sekund.
