@@ -1,4 +1,4 @@
-# Úkol 2 - Projekt Trpaslík (Maze)
+# Úkol - Projekt Trpaslík (Maze)
 
 ## Zadání
 
